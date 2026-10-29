@@ -23,3 +23,11 @@ for (const empty of [1,2,3,4]) {
   assert.deepEqual(generate(8,'medium',empty), b);
 }
 console.log('Tube counts passed');
+const {availableMoves} = require('../game.js');
+assert.deepEqual(availableMoves([[0,1,0,1],[1,0,1,0]]), []);
+assert.deepEqual(availableMoves([[0],[1]]), []);
+assert.deepEqual(availableMoves([[0,0],[]]), []); // Only relocates a uniform tube.
+assert.deepEqual(availableMoves([[0,1],[]]), [{from:0,to:1}]);
+assert.deepEqual(availableMoves([[0,0,1],[1,1]]), [{from:0,to:1},{from:1,to:0}]);
+const checkingBoard=[[0,1],[]];availableMoves(checkingBoard);assert.deepEqual(checkingBoard,[[0,1],[]]);
+console.log('Available moves and dead ends passed');
