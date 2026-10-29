@@ -1,4 +1,4 @@
-const CACHE = 'quiet-water-v6';
+const CACHE = 'quiet-water-v7';
 const ASSETS = ['./', './index.html', './style.css', './game.js', './fonts/NotoSans-Regular.ttf', './fonts/NotoSans-Bold.ttf', './fonts/NotoSerif-Regular.ttf', './fonts/NotoSerif-Italic.ttf'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
