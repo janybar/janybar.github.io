@@ -38,35 +38,76 @@ function layoutBoard(){
   if(!best)best={hitWidth:44,hitHeight:84};
   field.style.setProperty('--hit-width',Math.floor(best.hitWidth)+'px');field.style.setProperty('--hit-height',Math.floor(best.hitHeight)+'px');field.style.setProperty('--vessel-height',Math.floor(best.hitHeight-16)+'px');
 }
-function updateHint(){const hint=$('#play-hint');hint.textContent=selected!==null?(activeTubes?'Следующая пробирка выбрана':'Выбери, куда перелить'):(activeTubes?'Можно выбрать следующую пробирку':'Выбери пробирку с водой');}
-function render(){ $('#level').textContent=String(level).padStart(2,'0');$('#moves').textContent=moves;$('#restart').disabled=false;$('#check-moves').disabled=locked;$('#undo').disabled=!history.length;$('#board').innerHTML='';board.forEach((tube,i)=>{const btn=document.createElement('button');btn.className='tube-button'+(selected===i?' selected':'');btn.setAttribute('aria-label',`Пробирка ${i+1}: ${tube.length} из 4 слоёв${selected===i?', выбрана':''}`);btn.setAttribute('aria-pressed',selected===i);const glass=document.createElement('span');glass.className='tube';tube.forEach(c=>{const layer=document.createElement('span');layer.className='water';layer.style.setProperty('--water',palette[c]);glass.appendChild(layer)});btn.appendChild(glass);if(tube.length===4&&tube.every(c=>c===tube[0])){btn.classList.add('complete');const mark=document.createElement('span');mark.className='tube-check';mark.textContent='✓';mark.setAttribute('aria-hidden','true');btn.appendChild(mark);btn.setAttribute('aria-label',`Пробирка ${i+1}: собрана${selected===i?', выбрана':''}`)}btn.onclick=()=>choose(i);$('#board').appendChild(btn)});updateHint();layoutBoard();}
+function setAttributeIfChanged(node,name,value){value=String(value);if(node.getAttribute(name)!==value)node.setAttribute(name,value);}
+function setTextIfChanged(node,text){text=String(text);if(node.textContent!==text)node.textContent=text;}
+function syncControls(){
+  const undo=$('#undo');if(undo.disabled!==!history.length)undo.disabled=!history.length;
+  setAttributeIfChanged(undo,'aria-disabled',locked||!history.length);
+  setAttributeIfChanged($('#restart'),'aria-disabled',locked);
+  setAttributeIfChanged($('#check-moves'),'aria-disabled',locked);
+}
+function updateHint(){setTextIfChanged($('#play-hint'),'Выбери пробирку, затем другую');}
+function syncSelection(){
+  [...$('#board').children].forEach((button,index)=>{
+    const isSelected=index===selected;
+    if(button.classList.contains('selected')!==isSelected)button.classList.toggle('selected',isSelected);
+    setAttributeIfChanged(button,'aria-pressed',isSelected);
+    const tube=board[index],complete=tube.length===4&&tube.every(c=>c===tube[0]);
+    setAttributeIfChanged(button,'aria-label',`Пробирка ${index+1}: ${complete?'собрана':tube.length+' из 4 слоёв'}${isSelected?', выбрана':''}`);
+    if(button.classList.contains('suggested-target'))button.classList.remove('suggested-target');
+  });
+}
+function selectTube(index){selected=index;syncSelection();updateHint();}
+function render(){
+  setTextIfChanged($('#level'),String(level).padStart(2,'0'));setTextIfChanged($('#moves'),moves);syncControls();
+  const field=$('#board');
+  if(field.children.length!==board.length){
+    field.replaceChildren(...board.map((_,index)=>{
+      const button=document.createElement('button');button.className='tube-button';button.type='button';
+      const glass=document.createElement('span');glass.className='tube';button.appendChild(glass);
+      button.onclick=()=>choose(index);
+      button.onpointerdown=event=>{if(event.isPrimary&&!button.disabled){button.classList.add('touch-pressed');}};
+      const release=()=>button.classList.remove('touch-pressed');
+      button.onpointerup=button.onpointercancel=button.onpointerleave=release;
+      button.onlostpointercapture=release;
+      return button;
+    }));
+  }
+  board.forEach((tube,index)=>{
+    const button=field.children[index],signature=tube.join(',');
+    if(button.dataset.liquid!==signature){
+      button.dataset.liquid=signature;button.classList.remove('settling','just-completed');
+      button.querySelector('.tube').replaceChildren(...tube.map(color=>{const layer=document.createElement('span');layer.className='water';layer.style.setProperty('--water',palette[color]);return layer;}));
+      const complete=tube.length===4&&tube.every(color=>color===tube[0]);
+      button.classList.toggle('complete',complete);
+      const mark=button.querySelector('.tube-check');
+      if(complete&&!mark){const check=document.createElement('span');check.className='tube-check';check.textContent='✓';check.setAttribute('aria-hidden','true');button.appendChild(check);}else if(!complete)mark?.remove();
+    }
+    if(button.disabled)button.disabled=false;
+    button.classList.remove('touch-pressed');
+  });
+  syncSelection();updateHint();layoutBoard();
+}
 async function choose(i){
   if(locked){
     if(!activeTubes||activeTubes.includes(i)||!board[i].length)return;
-    selected=selected===i?null:i;
-    // Keep the animating vessels and their DOM nodes intact while updating selection.
-    [...$('#board').children].forEach((button,index)=>{
-      button.classList.toggle('selected',index===selected);
-      button.setAttribute('aria-pressed',String(index===selected));
-      const label=button.getAttribute('aria-label').replace(', выбрана','');
-      button.setAttribute('aria-label',label+(index===selected?', выбрана':''));
-    });
-    updateHint();return;
+    selectTube(selected===i?null:i);return;
   }
-  if(selected===null){if(board[i].length){selected=i;render()}return;}
-  if(selected===i){selected=null;render();return;}
+  if(selected===null){if(board[i].length)selectTube(i);return;}
+  if(selected===i){selectTube(null);return;}
   const next=pour(board,selected,i);
-  if(!next){selected=board[i].length?i:null;render();return;}
+  if(!next){selectTube(board[i].length?i:null);return;}
   const from=selected,currentRound=round;
-  locked=true;activeTubes=[from,i];selected=null;activeTubes.forEach(index=>{$('#board').children[index].disabled=true});$('#undo').disabled=true;$('#restart').disabled=true;$('#check-moves').disabled=true;updateHint();
+  locked=true;activeTubes=[from,i];selected=null;
+  activeTubes.forEach(index=>{$('#board').children[index].disabled=true});syncControls();
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches&&window.playWaterPour){
     activePour=window.playWaterPour({source:$('#board').children[from],target:$('#board').children[i],colors:board[from],amount:next[i].length-board[i].length,palette});
     await activePour.finished;
   }
   if(currentRound!==round)return;
-  activePour=null;activeTubes=null;history.push(board.map(t=>t.slice()));board=next;moves++;render();$('#restart').disabled=false;
+  activePour=null;activeTubes=null;history.push(board.map(t=>t.slice()));board=next;moves++;locked=won(board);render();
   const destination=$('#board').children[i];destination.classList.add('settling');if(next[i].length===4&&next[i].every(c=>c===next[i][0]))destination.classList.add('just-completed');
-  if(won(board)){setTimeout(()=>{if(currentRound!==round)return;$('#win-moves').textContent=moves+' '+(moves%100>=11&&moves%100<=14?'ходов':moves%10===1?'ход':moves%10>=2&&moves%10<=4?'хода':'ходов');openOverlay('win');},300)}else{locked=false;$('#check-moves').disabled=false;}
+  if(locked){setTimeout(()=>{if(currentRound!==round)return;$('#win-moves').textContent=moves+' '+(moves%100>=11&&moves%100<=14?'ходов':moves%10===1?'ход':moves%10>=2&&moves%10<=4?'хода':'ходов');openOverlay('win');},300)}
 }
 const themeSelect=$('#theme-select');const themes=['light','dark','retro','80s','retrofuturism','hacker','linux','gruvbox'];let theme='light';try{const saved=localStorage.getItem('water-theme');theme=themes.includes(saved)?saved:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){}function applyTheme(){document.documentElement.classList.toggle('dark',theme!=='light');document.documentElement.dataset.theme=theme;themeSelect.value=theme}themeSelect.onchange=()=>{theme=themes.includes(themeSelect.value)?themeSelect.value:'light';try{localStorage.setItem('water-theme',theme)}catch(e){}applyTheme()};applyTheme();
 $('#undo').onclick=()=>{if(!locked&&history.length){board=history.pop();moves=Math.max(0,moves-1);selected=null;render()}};$('#restart').onclick=()=>{if(locked)return;board=initial.map(t=>t.slice());history=[];moves=0;selected=null;render()};$('#next').onclick=()=>{closeOverlay('win');level=level<999999?level+1:1;save();start()};$('#level-form').onsubmit=e=>{e.preventDefault();const input=$('#level-input');if(!input.reportValidity())return;difficulty=$('#difficulty').value;level=validLevel(input.value);emptyTubes=Number($('#empty-tubes').value);save();start();closeSettings()};$('#difficulty').onchange=e=>{const chosen=e.target.value;try{$('#level-input').value=chosen===difficulty?level:validLevel(localStorage.getItem('water-level-'+chosen)||(chosen==='classic'?localStorage.getItem('water-level'):1))}catch(err){$('#level-input').value=chosen===difficulty?level:1}};function openOverlay(id){

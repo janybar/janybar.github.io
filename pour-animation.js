@@ -23,6 +23,8 @@
   window.playWaterPour=function({source,target,colors,amount,palette}) {
     const glass=source.querySelector('.tube'),receiver=target.querySelector('.tube');
     const a=glass.getBoundingClientRect(),b=receiver.getBoundingClientRect();
+    const sourceTransform=getComputedStyle(source).transform;
+    const sourceLift=sourceTransform==='none'?0:new DOMMatrixReadOnly(sourceTransform).m42;
     const canvas=document.createElement('canvas');canvas.className='liquid-flight';canvas.setAttribute('aria-hidden','true');
     const ratio=Math.min(window.devicePixelRatio||1,2),width=innerWidth,height=innerHeight;
     canvas.width=width*ratio;canvas.height=height*ratio;document.body.appendChild(canvas);
@@ -62,7 +64,7 @@
       const targetX=b.left+b.width/2,lipY=b.top-24;
       const mouthX=targetX-direction*w/2*Math.cos(angle),mouthY=lipY-w/2*Math.abs(Math.sin(angle));
       const blend=approach*(1-back),x=(a.left+a.width/2)*(1-blend)+mouthX*blend;
-      const y=(a.top+12*back)*(1-blend)+mouthY*blend-16*Math.sin(Math.PI*approach)*(1-back)-10*Math.sin(Math.PI*back);
+      const y=(a.top-sourceLift*back)*(1-blend)+mouthY*blend-16*Math.sin(Math.PI*approach)*(1-back)-10*Math.sin(Math.PI*back);
       const polygon=transform(x,y,angle);
       ctx.clearRect(0,0,width,height);
       const shadow=ctx.createRadialGradient(a.left+a.width/2,a.bottom+8,1,a.left+a.width/2,a.bottom+8,a.width*.7);
