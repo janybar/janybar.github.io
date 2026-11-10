@@ -105,7 +105,7 @@ function openArt(id){
  $('#art-surface').querySelectorAll('[data-region]').forEach(path=>path.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();fillRegion(Number(path.dataset.region))}});
  buildPalette();view={scale:1,x:0,y:0};fitStage();updatePainting();$('#editor-back').focus({preventScroll:true});
 }
-function navigateArt(id){galleryScroll=scrollY;history.pushState(null,'','#paint/'+id);openArt(id);}
+function navigateArt(id){galleryScroll=scrollY;history.pushState(null,'',location.pathname+location.search+'#paint/'+id);openArt(id);}
 function showGallery(){saveProgress();clearTimeout(completeTimer);pointers.clear();gesture=null;$('#editor-view').hidden=true;$('#gallery-view').hidden=false;document.body.style.overflow='';art=null;session=null;renderGallery();requestAnimationFrame(()=>scrollTo(0,galleryScroll));}
 function route(){const match=location.hash.match(/^#paint\/([\w-]+)$/);if(match&&ARTWORKS.some(a=>a.id===match[1]))openArt(match[1]);else showGallery();}
 $('#editor-back').onclick=()=>{history.replaceState(null,'',location.pathname+location.search);showGallery();};window.addEventListener('popstate',route);
