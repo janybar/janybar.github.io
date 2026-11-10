@@ -36,7 +36,7 @@ const {solve}=require('../solver.js');
  await call('Emulation.setTouchEmulationEnabled',{enabled:true});await media('no-preference');
  await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
  await call('Page.addScriptToEvaluateOnNewDocument',{source:"window.workerStarts=0;const NativeWorker=window.Worker;window.Worker=class extends NativeWorker{constructor(...args){super(...args);window.workerStarts++}}"});
- await call('Page.navigate',{url:'http://127.0.0.1:8765'});await waitGame();
+ await call('Page.navigate',{url:'http://127.0.0.1:8765/water-sort/'});await waitGame();
  await run('localStorage.clear()');await game('mode="journey";level=1;difficulty="classic";emptyTubes=2;save();start({resume:false})');await reloadPage();await waitGame();
  if(process.argv.includes('--layout-only')){
  await call('Emulation.setDeviceMetricsOverride',{width:320,height:568,deviceScaleFactor:1,mobile:true});await game('difficulty="hard";emptyTubes=4;start({resume:false})');await sleep(200);
