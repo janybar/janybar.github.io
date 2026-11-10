@@ -41,9 +41,9 @@
     shape.push({x:-w/2,y:0});
     const transform=(x,y,angle)=>shape.map(p=>({x:x+p.x*Math.cos(angle)-p.y*Math.sin(angle),y:y+p.x*Math.sin(angle)+p.y*Math.cos(angle)}));
     const ease=t=>t*t*t*(t*(t*6-15)+10),clamp=t=>Math.max(0,Math.min(1,t));
-    const travel=Math.min(370,260+Math.hypot(b.left-a.left,b.top-a.top)*.18);
-    const flowStart=travel+35,flowDuration=390+amount*90,flowEnd=flowStart+flowDuration;
-    const returnStart=flowEnd+90,duration=returnStart+300;
+    const travel=Math.min(210,150+Math.hypot(b.left-a.left,b.top-a.top)*.08);
+    const flowStart=travel+20,flowDuration=210+amount*45,flowEnd=flowStart+flowDuration;
+    const returnStart=flowEnd+50,duration=returnStart+160;
     const liquidColor=palette[colors[colors.length-1]];
     const incoming=document.createElement('span');incoming.className='water incoming-water';incoming.style.setProperty('--water',palette[colors[colors.length-1]]);incoming.style.height='0px';receiver.appendChild(incoming);
     const existing=receiver.children.length-1,unit=(receiver.clientHeight-3)/4;
@@ -55,7 +55,7 @@
     window.addEventListener('resize',finish);window.addEventListener('scroll',finish,{passive:true});document.addEventListener('visibilitychange',onVisibility);
     function draw(now){
       if(ended)return;if(started===undefined)started=now;
-      const elapsed=now-started,approach=ease(clamp(elapsed/travel)),flow=clamp((elapsed-flowStart)/flowDuration),drain=flow*flow*(3-2*flow),back=ease(clamp((elapsed-returnStart)/300));
+      const elapsed=now-started,approach=ease(clamp(elapsed/travel)),flow=clamp((elapsed-flowStart)/flowDuration),drain=flow*flow*(3-2*flow),back=ease(clamp((elapsed-returnStart)/160));
       const remaining=colors.length-amount*drain;
       // Find the tilt at which the liquid surface reaches the lower edge of the mouth.
       let lo=0,hi=Math.PI*.72;
@@ -109,15 +109,15 @@
         ctx.restore();
       }
       // Two small trailing drops finish the stream without an abrupt cutoff.
-      if(elapsed>=flowEnd&&elapsed<flowEnd+90){
+      if(elapsed>=flowEnd&&elapsed<flowEnd+50){
         for(let drop=0;drop<2;drop++){
-          const t=clamp((elapsed-flowEnd-drop*22)/65);
+          const t=clamp((elapsed-flowEnd-drop*12)/38);
           if(t>0&&t<1){ctx.globalAlpha=1-t*.6;ctx.fillStyle=liquidColor;ctx.beginPath();ctx.ellipse(targetX,tip.y+(surface-tip.y)*t*t,1.3,2,0,0,Math.PI*2);ctx.fill();}
         }ctx.globalAlpha=1;
       }
       if(elapsed>=duration){cleanup(true);return;}frame=requestAnimationFrame(draw);
     }
     frame=requestAnimationFrame(draw);
-    return {finished,cancel:()=>cleanup(false)};
+    return {finished,finish,cancel:()=>cleanup(false)};
   };
 })();

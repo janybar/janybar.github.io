@@ -1,4 +1,4 @@
-importScripts('./game.js','./solver.js');
+importScripts('./levels.js','./puzzle.js','./game.js','./solver.js');
 self.onmessage=event=>{
   try{
     const {board,longer}=event.data;
