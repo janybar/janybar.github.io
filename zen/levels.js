@@ -1,9 +1,11 @@
 (function(root){
+ const patterns=typeof module!=='undefined'?require('./patterns.js'):root.ZenPatterns,totalLevels=240;
  const palette={paper:'#eeece3',coral:'#ed7470',teal:'#58b6ae',gold:'#ecc35e',blue:'#79a6cf',violet:'#a28fbc',leaf:'#a5bf7a',white:'#fffdf3',black:'#28383d'};
  const chapters=[{title:'Встреча',description:'Соединяй одинаковые цвета. Последним должен остаться цвет рамки.'},{title:'Белый свет',description:'Белая фигура соединяется с любым цветом.'},{title:'Тень',description:'Чёрная фигура поглощает то, что её коснулось. Фон не меняется.'},{title:'Внутри',description:'Внутренние фигуры раскрываются, когда исчезает внешняя оболочка.'},{title:'Защита',description:'Дважды коснись пунктирной фигуры: защита сохранит её при заливке.'},{title:'Отражение',description:'Связанные фигуры двигаются зеркально. Следи за обеими сторонами.'}];
  const colors=['coral','teal','gold','blue','violet','leaf'];
  function createLevel(number=1){
-  number=Math.max(1,Math.min(120,Math.floor(Number(number)||1)));
+  number=Math.max(1,Math.min(totalLevels,Math.floor(Number(number)||1)));
+  if(number>120)return patterns.createMathLevel(number,colors,chapters);
   const chapter=Math.floor((number-1)/20),index=(number-1)%20,shift=(index+chapter)%colors.length,c=Array.from({length:6},(_,i)=>colors[(i+shift)%6]);
   const nodes=[];let serial=0;
   const piece=(color,x,y,r,movable=false,extra={})=>{const n={id:'p'+serial++,color,x,y,r,shape:['circle','square','diamond','triangle'][(index+serial)%4],parent:null,movable,shield:false,...extra};nodes.push(n);return n;};
@@ -35,5 +37,7 @@
   }
   return {id:'flow-'+number,number,chapter,index,title:chapters[chapter].title,description:chapters[chapter].description,goal,background:'paper',nodes};
  }
- const api={palette,chapters,createLevel};if(typeof module!=='undefined')module.exports=api;else root.ZenLevels=api;
+ chapters.push({title:'Математика',description:'10 знаменитых узоров, 20 головоломок. Во второй десятке сохрани цвет рамки с помощью защиты.'});
+ chapters.push({title:'Новые узоры',description:'Ещё 10 открытий: спирали, кривые, деревья и фракталы. Начни с формы, затем попробуй защиту.'},{title:'Слои',description:'20 узоров с вложенными цветами. Раскрывай оболочки и оставь цвет рамки напоследок.'},{title:'Белые узоры',description:'Белые фигуры подходят к любому цвету, но их запас ограничен. Порядок ходов имеет значение.'},{title:'Тёмные узоры',description:'За цветными оболочками скрыта тень. Сохрани отдельную фигуру для чёрного слоя.'},{title:'Хранители',description:'Повторяющийся цвет нужно сохранить дважды. Защити обе пунктирные фигуры перед первой заливкой.'});
+ const api={palette,chapters,totalLevels,createLevel};if(typeof module!=='undefined')module.exports=api;else root.ZenLevels=api;
 })(globalThis);

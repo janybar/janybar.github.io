@@ -5,7 +5,7 @@ let data;try{data=JSON.parse(localStorage.getItem('quiet-zen-v1'))}catch(e){}
 if(!data||typeof data!=='object')data={};if(!data.sessions||typeof data.sessions!=='object')data.sessions={};if(!Array.isArray(data.completed))data.completed=[];
 let level=L.createLevel(data.level),state=Z.clone(level),history=[],selected=null,effect=null,glide=null,drag=null,toastTimer=null,chapterPage=level.chapter,lastTap={id:null,time:0};
 const colorNames={coral:'коралловый',teal:'бирюзовый',gold:'золотой',blue:'голубой',violet:'лиловый',leaf:'зелёный',white:'белый',black:'чёрный',paper:'светлый'};
-const shapeNames={circle:'круг',square:'квадрат',triangle:'треугольник',diamond:'ромб'};
+const shapeNames={circle:'круг',square:'квадрат',triangle:'треугольник',diamond:'ромб',hexagon:'шестиугольник'};
 function save(){try{data.level=level.number;data.sessions[level.number]={background:state.background,nodes:state.nodes,history:history.slice(-24)};localStorage.setItem('quiet-zen-v1',JSON.stringify(data))}catch(e){}}
 function restore(saved){
  if(!saved||!L.palette[saved.background]||!Array.isArray(saved.nodes))return null;
@@ -26,7 +26,7 @@ function svgElement(tag,attributes={}){const node=document.createElementNS(NS,ta
 function geometry(n,r=n.r){
  if(n.shape==='circle')return svgElement('circle',{r,cx:0,cy:0});
  if(n.shape==='square')return svgElement('rect',{x:-r,y:-r,width:r*2,height:r*2});
- const points=n.shape==='triangle'?[[0,-r],[r*.866,r*.5],[-r*.866,r*.5]]:[[0,-r],[r,0],[0,r],[-r,0]];
+ const points=Z.vertices({...n,x:0,y:0,r,rotation:0}).map(p=>[p.x,p.y]);
  return svgElement('polygon',{points:points.map(p=>p.join(',')).join(' ')});
 }
 function createPiece(n,mini=false){
@@ -34,6 +34,7 @@ function createPiece(n,mini=false){
  const free=n.parent===null;group.classList.add('piece',free&&n.movable?'movable':'locked');
  if(n.canShield)group.classList.add('can-shield');if(n.shield)group.classList.add('shielded');if(n.id===selected)group.classList.add('selected');
  const body=geometry(n);body.setAttribute('fill',L.palette[n.color]);body.classList.add('piece-body');group.appendChild(body);
+ if(n.label&&!mini){const label=svgElement('text',{'text-anchor':'middle','dominant-baseline':'central',fill:Z.contrastInk(L.palette[n.color]),class:'piece-label'});label.textContent=n.label;group.appendChild(label);}
  if(!mini){
   const ring=geometry(n,Math.max(8,n.r-8));ring.classList.add('piece-ring');group.appendChild(ring);
   if(n.canShield){const shield=geometry(n,n.r+9);shield.classList.add('shield-ring');group.appendChild(shield);}
@@ -49,11 +50,17 @@ function caption(){
 }
 function updateControls(){const disabled=!history.length&&!drag;$('#undo').disabled=disabled;$('#undo').setAttribute('aria-disabled',String(disabled));}
 function render(){
- $('#chapter-name').textContent=level.title;$('#level-heading').innerHTML=String(level.number).padStart(2,'0')+' <span>/ 120</span>';
+ $('#chapter-name').textContent=level.title;$('#level-heading').innerHTML=String(level.number).padStart(2,'0')+' <span>/ '+L.totalLevels+'</span>';
+ $('#pattern-caption').hidden=!level.patternName;$('#pattern-name').textContent=level.patternName||'';$('#pattern-caption').title=level.patternDescription||'';
  document.documentElement.style.setProperty('--goal',L.palette[level.goal]);$('#board-host').style.background=L.palette[state.background];$('#goal-dot').style.background=L.palette[level.goal];
  $('#pieces').replaceChildren(...state.nodes.map(n=>createPiece(n)));$('#hint-layer').replaceChildren();
  $('#mirror-guide').replaceChildren();if(level.chapter===5)$('#mirror-guide').appendChild(svgElement('line',{x1:300,y1:35,x2:300,y2:765,class:'mirror-line'}));
+ renderGuides();
  $('#win-overlay').hidden=true;updateControls();caption();
+}
+function renderGuides(){
+ const layer=$('#math-guide'),live=new Map(state.nodes.map(n=>[n.id,n]));layer.replaceChildren();
+ for(const guide of level.guides||[]){let d='';for(let i=1;i<guide.ids.length;i++){const a=live.get(guide.ids[i-1]),b=live.get(guide.ids[i]);if(a&&b)d+=`M${a.x},${a.y}L${b.x},${b.y}`;}if(d)layer.appendChild(svgElement('path',{d,class:'math-line'}));}
 }
 function updatePositions(){for(const n of state.nodes){const group=$('#pieces').querySelector(`[data-piece="${n.id}"]`);if(group)group.setAttribute('transform',`translate(${n.x} ${n.y}) rotate(${n.rotation||0})`);}}
 function select(id){selected=selected===id?null:id;$('#pieces').querySelectorAll('.piece').forEach(g=>g.classList.toggle('selected',g.dataset.piece===selected));$('#hint-layer').replaceChildren();caption();}
@@ -84,7 +91,7 @@ function commit(result,origin,before=Z.clone(state),auto=false){
 function celebrate(){
  stopGlide();$('#win-overlay').hidden=false;$('#instruction').textContent='Никакой спешки. Можно идти дальше.';
  document.documentElement.style.setProperty('--win-ink',Z.contrastInk(L.palette[level.goal]));
- if(!data.completed.includes(level.number))data.completed.push(level.number);$('#next-level').innerHTML=(level.number===120?'С начала':'Дальше')+' <span>→</span>';save();
+ if(!data.completed.includes(level.number))data.completed.push(level.number);$('#next-level').innerHTML=(level.number===L.totalLevels?'С начала':'Дальше')+' <span>→</span>';save();
 }
 function finishAnimations(){let guard=0;while(effect&&guard++<20)effect.finish();stopGlide();}
 function tap(id){
@@ -140,22 +147,25 @@ function release(event,cancelled){
 $('#game-svg').onpointerup=event=>release(event,false);$('#game-svg').onpointercancel=event=>release(event,true);$('#game-svg').onlostpointercapture=event=>{if(drag&&drag.pointer===event.pointerId)release(event,true)};
 $('#undo').onclick=()=>{cancelEffect();stopGlide();if(drag){state=drag.before;drag=null;}else if(history.length)state=history.pop();selected=null;render();save();};
 $('#restart').onclick=$('#win-repeat').onclick=()=>loadLevel(level.number,{fresh:true});
-$('#next-level').onclick=()=>loadLevel(level.number===120?1:level.number+1,{fresh:true});
+$('#next-level').onclick=()=>loadLevel(level.number===L.totalLevels?1:level.number+1,{fresh:true});
 $('#hint').onclick=()=>{
  finishAnimations();if(Z.won(state))return;const result=Z.solve(state);$('#hint-layer').replaceChildren();
  if(result.status==='dead'){notify('Из этого положения завершить уровень не получится. Попробуй отменить ход.');return;}
  if(result.status!=='solved'||!result.path.length){notify('Пока не удалось найти путь. Можно отменить ход и попробовать иначе.');return;}
  const step=result.path[0];
  if(step.type==='shield'){const n=state.nodes.find(p=>p.id===step.id);$('#hint-layer').appendChild(svgElement('circle',{cx:n.x,cy:n.y,r:n.r+18,class:'hint-halo'}));notify('Дважды коснись подсвеченной фигуры, чтобы переключить защиту.');return;}
- const a=state.nodes.find(n=>n.id===step.from),b=state.nodes.find(n=>n.id===step.to);selected=a.id;
+ const route=Z.hintRoute(state,step),a=state.nodes.find(n=>n.id===step.from),b=state.nodes.find(n=>n.id===(route?.to||step.to));selected=a.id;
+ $('#pieces').querySelectorAll('.piece').forEach(g=>g.classList.toggle('selected',g.dataset.piece===selected));
  [a,b].forEach(n=>$('#hint-layer').appendChild(svgElement('circle',{cx:n.x,cy:n.y,r:n.r+16,class:'hint-halo'})));
- $('#hint-layer').appendChild(svgElement('path',{d:`M${a.x},${a.y}Q300,${Math.min(a.y,b.y)-70} ${b.x},${b.y}`,class:'hint-arrow'}));notify('Перетащи подсвеченную подвижную фигуру к её паре.');
+ if(route)$('#hint-layer').appendChild(svgElement('path',{d:route.points.map((p,i)=>(i?'L':'M')+p.x+','+p.y).join(' '),class:'hint-arrow'}));
+ notify(route?'Следуй по линии или коснись второй подсвеченной фигуры.':'Коснись второй подсвеченной фигуры, чтобы соединить пару.');
 };
-function miniature(number){const model=L.createLevel(number),svg=svgElement('svg',{viewBox:'0 0 600 800','aria-hidden':'true'});svg.appendChild(svgElement('rect',{x:7,y:7,width:586,height:786,fill:L.palette.paper,stroke:L.palette[model.goal],'stroke-width':22}));model.nodes.forEach(n=>svg.appendChild(createPiece(n,true)));return svg;}
+function miniature(number){const model=L.createLevel(number),svg=svgElement('svg',{viewBox:'0 0 600 800','aria-hidden':'true'});svg.appendChild(svgElement('rect',{x:7,y:7,width:586,height:786,fill:L.palette.paper,stroke:L.palette[model.goal],'stroke-width':22}));for(const guide of model.guides||[]){const points=guide.ids.map(id=>model.nodes.find(n=>n.id===id)).map(n=>n.x+','+n.y).join(' ');svg.appendChild(svgElement('polyline',{points,class:'math-line'}));}model.nodes.forEach(n=>svg.appendChild(createPiece(n,true)));return svg;}
 function renderLevels(){
  $('#chapter-tabs').replaceChildren(...L.chapters.map((chapter,index)=>{const button=document.createElement('button');button.textContent=chapter.title;button.setAttribute('aria-pressed',String(chapterPage===index));button.onclick=()=>{chapterPage=index;renderLevels()};return button}));
  $('#chapter-description').textContent=L.chapters[chapterPage].description;
- $('#level-grid').replaceChildren(...Array.from({length:20},(_,i)=>{const number=chapterPage*20+i+1,button=document.createElement('button');button.className='level-card'+(number===level.number?' current':'')+(data.completed.includes(number)?' complete':'');button.setAttribute('aria-label','Уровень '+number+(data.completed.includes(number)?', пройден':''));button.appendChild(miniature(number));const label=document.createElement('span');label.textContent=String(number).padStart(2,'0');button.appendChild(label);button.onclick=()=>{$('#levels-dialog').close();loadLevel(number,{fresh:data.completed.includes(number)})};return button}));
+ $('#level-grid').replaceChildren(...Array.from({length:20},(_,i)=>{const number=chapterPage*20+i+1,model=L.createLevel(number),button=document.createElement('button');button.className='level-card'+(number===level.number?' current':'')+(data.completed.includes(number)?' complete':'');button.setAttribute('aria-label','Уровень '+number+(model.patternName?', '+model.patternName:'')+(data.completed.includes(number)?', пройден':''));button.appendChild(miniature(number));const label=document.createElement('span');label.textContent=String(number).padStart(2,'0');button.appendChild(label);if(model.patternName){const name=document.createElement('small');name.className='pattern-card-name';name.textContent=model.patternName;button.appendChild(name);}button.onclick=()=>{$('#levels-dialog').close();loadLevel(number,{fresh:data.completed.includes(number)})};return button}));
+ requestAnimationFrame(()=>{if($('#levels-dialog').open)$('#chapter-tabs button[aria-pressed="true"]')?.scrollIntoView({block:'nearest',inline:'center'});});
 }
 function openDialog(id){finishAnimations();document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());$('#'+id).showModal();}
 $('#levels-open').onclick=$('#level-heading').onclick=()=>{chapterPage=level.chapter;renderLevels();openDialog('levels-dialog')};

@@ -1,5 +1,5 @@
-const CACHE='quiet-water-v21';
-const ASSETS=["./","./index.html","./zen/core.js","./zen/levels.js","./zen/audio.js","./zen/app.js","./zen/zen.css","./coloring/","./coloring/index.html","./coloring/art.js","./coloring/core.js","./coloring/app.js","./coloring/color.css","./water-sort/","./water-sort/index.html","./style.css","./game.js","./levels.js","./puzzle.js","./pour-animation.js","./victory.js","./solver.js","./solver-worker.js","./fonts/NotoSans-Regular.ttf","./fonts/NotoSans-Bold.ttf","./fonts/NotoSerif-Regular.ttf","./fonts/NotoSerif-Italic.ttf"];
+const CACHE='quiet-water-v23';
+const ASSETS=["./","./index.html","./zen/core.js","./zen/levels.js","./zen/patterns.js","./zen/audio.js","./zen/app.js","./zen/zen.css","./coloring/","./coloring/index.html","./coloring/art.js","./coloring/core.js","./coloring/app.js","./coloring/color.css","./water-sort/","./water-sort/index.html","./style.css","./game.js","./levels.js","./puzzle.js","./pour-animation.js","./victory.js","./solver.js","./solver-worker.js","./fonts/NotoSans-Regular.ttf","./fonts/NotoSans-Bold.ttf","./fonts/NotoSerif-Regular.ttf","./fonts/NotoSerif-Italic.ttf"];
 const assetUrls=new Set(ASSETS.map(path=>new URL(path,self.registration.scope).href));
 const indexUrl=new URL('./index.html',self.registration.scope).href;
 self.addEventListener('install',event=>{

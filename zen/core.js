@@ -34,11 +34,12 @@
  }
  function vertices(n){
   const r=n.r,angle=(n.rotation||0)*Math.PI/180;
-  const points=n.shape==='triangle'?[[0,-r],[r*.866,r*.5],[-r*.866,r*.5]]:n.shape==='diamond'?[[0,-r],[r,0],[0,r],[-r,0]]:[[-r,-r],[r,-r],[r,r],[-r,r]];
+  const points=n.shape==='hexagon'?Array.from({length:6},(_,i)=>[r*Math.cos(i*Math.PI/3-Math.PI/2),r*Math.sin(i*Math.PI/3-Math.PI/2)]):n.shape==='triangle'?[[0,-r],[r*.866,r*.5],[-r*.866,r*.5]]:n.shape==='diamond'?[[0,-r],[r,0],[0,r],[-r,0]]:[[-r,-r],[r,-r],[r,r],[-r,r]];
   return points.map(([x,y])=>({x:n.x+x*Math.cos(angle)-y*Math.sin(angle),y:n.y+x*Math.sin(angle)+y*Math.cos(angle)}));
  }
  function contains(n,x,y){if(n.shape==='circle')return Math.hypot(x-n.x,y-n.y)<=n.r;const points=vertices(n);let sign=0;for(let i=0;i<points.length;i++){const a=points[i],b=points[(i+1)%points.length],cross=(b.x-a.x)*(y-a.y)-(b.y-a.y)*(x-a.x);if(Math.abs(cross)<1e-8)continue;if(sign&&Math.sign(cross)!==sign)return false;sign=Math.sign(cross);}return true;}
  function overlap(a,b){
+  const bound=n=>n.r*(n.shape==='square'?Math.SQRT2:1);if(Math.hypot(a.x-b.x,a.y-b.y)>bound(a)+bound(b))return false;
   if(a.shape==='circle'&&b.shape==='circle')return Math.hypot(a.x-b.x,a.y-b.y)<=a.r+b.r;
   const ap=a.shape==='circle'?null:vertices(a),bp=b.shape==='circle'?null:vertices(b),axes=[];
   for(const points of [ap,bp])if(points)for(let i=0;i<points.length;i++){const p=points[i],q=points[(i+1)%points.length];axes.push({x:-(q.y-p.y),y:q.x-p.x});}
@@ -55,6 +56,37 @@
   for(const n of next.nodes){if(belongs(n,id)){n.x+=dx;n.y+=dy;}else if(mirror&&belongs(n,mirror.id)){n.x-=dx;n.y+=dy;}}
   return next;
  }
+ function hintRoute(state,step,{spacing=20,limit=1800}={}){
+  if(step.type!=='match')return null;
+  const source=state.nodes.find(n=>n.id===step.from),expected=action(state,step);
+  if(!source||source.mirror||!expected)return null;
+  const sameResult=result=>result&&result.kind===expected.kind&&result.color===expected.color&&result.removed.slice().sort().join(',')===expected.removed.slice().sort().join(',');
+  const free=roots(state).filter(n=>n.id!==source.id),targets=new Set(free.filter(n=>sameResult(collide(state,source.id,n.id))).map(n=>n.id));
+  const radius=source.r*(source.shape==='square'?Math.SQRT2:1),inside=p=>p.x>=radius+10&&p.x<=590-radius&&p.y>=radius+10&&p.y<=790-radius;
+  const queue=[{x:source.x,y:source.y,parent:null}],seen=new Set(['0,0']);
+  const directions=[[0,-1],[-1,-1],[1,-1],[-1,0],[1,0],[-1,1],[1,1],[0,1]];
+  for(let i=0;i<queue.length&&i<limit;i++){
+   const from=queue[i];
+   for(const [dx,dy] of directions){
+    const to={x:from.x+dx*spacing,y:from.y+dy*spacing,parent:from},key=Math.round((to.x-source.x)/spacing)+','+Math.round((to.y-source.y)/spacing);
+    if(seen.has(key)||!inside(to))continue;
+    const count=Math.ceil(Math.hypot(to.x-from.x,to.y-from.y)/5);let blocked=false;
+    for(let j=1;j<=count;j++){
+     const point={x:from.x+(to.x-from.x)*j/count,y:from.y+(to.y-from.y)*j/count};
+     const hit=free.find(n=>overlap({...source,...point},n));if(!hit)continue;
+     if(targets.has(hit.id)){
+      const points=[point];let current=from;while(current){points.push({x:current.x,y:current.y});current=current.parent;}
+      return {from:source.id,to:hit.id,points:points.reverse()};
+     }
+     blocked=true;break;
+    }
+    if(!blocked){seen.add(key);queue.push(to);}
+   }
+  }
+  // The two-tap input remains available when a continuous route cannot be
+  // proved (including mirrored movement). Never draw an unchecked curve.
+  return null;
+ }
  function contrastInk(hex){const linear=c=>{const x=parseInt(c,16)/255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4};const rgb=hex.slice(1).match(/../g).map(linear),lum=rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722;return lum>.2?'#29484e':'#fffdf3';}
- const api={contrastInk,clone,roots,won,collide,toggleShield,action,actions,solve,vertices,contains,overlap,move};if(typeof module!=='undefined')module.exports=api;else root.ZenCore=api;
+ const api={contrastInk,clone,roots,won,collide,toggleShield,action,actions,solve,vertices,contains,overlap,move,hintRoute};if(typeof module!=='undefined')module.exports=api;else root.ZenCore=api;
 })(globalThis);
